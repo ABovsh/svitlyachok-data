@@ -1,7 +1,7 @@
 """Collect one regional feed. Publish only complete, changed schedules."""
 import argparse
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.request import Request, urlopen
 from zoneinfo import ZoneInfo
@@ -9,6 +9,8 @@ from zoneinfo import ZoneInfo
 from providers import chernivtsi
 
 PROVIDERS = {"chernivtsi": chernivtsi.collect}
+# "checked" is refreshed at least this often, so readers can tell a quiet day from a stopped collector.
+HEARTBEAT = timedelta(minutes=55)
 
 
 def fetch(url):
@@ -23,9 +25,12 @@ def update(region):
     now = datetime.now(ZoneInfo("Europe/Kyiv"))
     days = PROVIDERS[region](fetch, now.date())
     target = Path("data") / (region + ".json")
-    if target.exists() and json.loads(target.read_text())["days"] == days:
+    old = json.loads(target.read_text()) if target.exists() else {}
+    same = old.get("days") == days
+    if same and "checked" in old and now - datetime.fromisoformat(old["checked"]) < HEARTBEAT:
         return
-    output = {"region": region, "updated": now.isoformat(timespec="seconds"), "days": days}
+    stamp = now.isoformat(timespec="seconds")
+    output = {"region": region, "updated": old["updated"] if same else stamp, "checked": stamp, "days": days}
     target.parent.mkdir(exist_ok=True)
     temp = target.with_suffix(".tmp")
     temp.write_text(json.dumps(output, indent=2) + "\n")
