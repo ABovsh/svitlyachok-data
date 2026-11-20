@@ -19,10 +19,7 @@ def fetch(url):
         return body.decode("utf-8")
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("region", choices=PROVIDERS)
-    region = parser.parse_args().region
+def update(region):
     now = datetime.now(ZoneInfo("Europe/Kyiv"))
     days = PROVIDERS[region](fetch, now.date())
     target = Path("data") / (region + ".json")
@@ -33,6 +30,20 @@ def main():
     temp = target.with_suffix(".tmp")
     temp.write_text(json.dumps(output, indent=2) + "\n")
     temp.replace(target)
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("region", nargs="?", choices=PROVIDERS)
+    args = parser.parse_args()
+    failures = []
+    for region in [args.region] if args.region else PROVIDERS:
+        try:
+            update(region)
+        except (OSError, ValueError, KeyError) as error:
+            failures.append(f"{region}: {error}")
+    if failures:
+        raise SystemExit("\n".join(failures))
 
 
 if __name__ == "__main__":
