@@ -1,10 +1,8 @@
 """Read the operator's dated half-hour grid."""
 import re
 from datetime import datetime, timedelta
-from zoneinfo import ZoneInfo
 
 URL = "https://oblenergo.cv.ua/shutdowns/"
-ZONE = ZoneInfo("Europe/Kyiv")
 GROUPS = {str(i) for i in range(1, 13)}
 CELLS = {"<u>з</u>": "1", "<o>в</o>": "0", "<s>мз</s>": "3"}
 
