@@ -7,10 +7,14 @@ GROUPS = {str(i) for i in range(1, 13)}
 CELLS = {"<u>з</u>": "1", "<o>в</o>": "0", "<s>мз</s>": "3"}
 
 
+class Outdated(ValueError):
+    """The page does not show the expected date (yet)."""
+
+
 def parse(html, expected):
     header = re.search(r'<div\s+id="gsv"[^>]*>\s*<ul>\s*<p>\s*(\d{2}\.\d{2}\.\d{4})\s*</p>', html)
     if not header or datetime.strptime(header[1], "%d.%m.%Y").date() != expected:
-        raise ValueError("Missing or outdated schedule date")
+        raise Outdated("Missing or outdated schedule date")
     rows = {}
     for row in re.finditer(r'<div id="inf(\d+)" data-id="(\d+)">(.*?)</div>', html[header.end():], re.S):
         group, number, content = row.groups()
@@ -28,5 +32,10 @@ def collect(fetch, today):
     days = {today.isoformat(): parse(html, today)}
     if 'href="/shutdowns/?next"' in html:
         tomorrow = today + timedelta(days=1)
-        days[tomorrow.isoformat()] = parse(fetch(URL + '?next'), tomorrow)
+        # The link appears while the operator is still publishing: its page may show today's date
+        # for a while. Today stays published; a malformed tomorrow still fails.
+        try:
+            days[tomorrow.isoformat()] = parse(fetch(URL + '?next'), tomorrow)
+        except Outdated:
+            pass
     return days
